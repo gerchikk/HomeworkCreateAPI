@@ -1,6 +1,8 @@
 package ru.hogwarts.school.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -16,6 +18,7 @@ public class Student {
     private Long id;
     private String name;
     private int age;
+    @JsonIgnore
     @ManyToOne
     private Faculty faculty;
 

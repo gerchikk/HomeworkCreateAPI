@@ -2,7 +2,6 @@ package ru.hogwarts.school.controller;
 
 import org.springframework.web.bind.annotation.*;
 import ru.hogwarts.school.entity.Faculty;
-import ru.hogwarts.school.entity.LastFiveStudent;
 import ru.hogwarts.school.entity.Student;
 import ru.hogwarts.school.service.StudentService;
 
@@ -29,10 +28,8 @@ public class StudentController {
     }
 
     @PutMapping("{id}")
-    public Student update(@PathVariable("id") Long id,
-                          @RequestParam String name,
-                          @RequestParam int age) {
-        return studentService.update(id, name, age);
+    public Student update(@RequestBody Student student) {
+        return studentService.update(student);
     }
 
     @DeleteMapping("{id}")
@@ -65,11 +62,11 @@ public class StudentController {
 
     @GetMapping("/average-age-students")
     public Double getAverageAgeStudents() {
-        return studentService.getAverageAgeStudents();
+        return studentService.getAVGAgeStudents();
     }
 
     @GetMapping("/last-five-students")
-    public List<LastFiveStudent> getLastFiveStudent() {
+    public List<Student> getLastFiveStudent() {
         return studentService.getLastFiveStudents();
     }
 
@@ -80,7 +77,7 @@ public class StudentController {
 
     @GetMapping("average-age-students2")
     public Double getAverageAgeStudents2() {
-        return studentService.getAverageAgeStudents2();
+        return studentService.getAVGAgeStudentsWithStream();
     }
 
     @GetMapping("/get-students-streams")

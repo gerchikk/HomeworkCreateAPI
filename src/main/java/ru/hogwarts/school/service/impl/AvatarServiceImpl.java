@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import ru.hogwarts.school.entity.Avatar;
 import ru.hogwarts.school.entity.Student;
+import ru.hogwarts.school.exception.NotFoundStudentException;
 import ru.hogwarts.school.repository.AvatarRepository;
 import ru.hogwarts.school.repository.StudentRepository;
 import ru.hogwarts.school.service.AvatarService;
@@ -16,43 +17,45 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletResponse;
 import javax.transaction.Transactional;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.datical.liquibase.ext.init.InitProjectUtil.getExtension;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 @Service
 @Transactional
 public class AvatarServiceImpl implements AvatarService {
 
+    private final String avatarsDir;
+    private final AvatarRepository avatarRepository;
     private final StudentRepository studentRepository;
 
-    private final AvatarRepository avatarRepository;
+    private final Logger logger = LoggerFactory.getLogger(AvatarService.class);
 
-    private final String avatarsDir;
-
-    Logger logger = LoggerFactory.getLogger(AvatarService.class);
-
-
-    public AvatarServiceImpl(StudentRepository studentRepository,
-                             AvatarRepository avatarRepository,
-                             @Value("${path.to.avatars.folder}") String avatarsDir) {
-        this.studentRepository = studentRepository;
+    public AvatarServiceImpl(AvatarRepository avatarRepository,
+                         StudentRepository studentRepository,
+                         @Value("${path.to.avatars.folder}") String avatarsDir) {
         this.avatarRepository = avatarRepository;
+        this.studentRepository = studentRepository;
         this.avatarsDir = avatarsDir;
     }
 
     public void uploadAvatar(Long studentId, MultipartFile avatarFile) throws IOException {
-        logger.info("Was invoked method for upload the avatar for DB");
+        logger.info("method uploadAvatar is run");
         Student student = studentRepository.getById(studentId);
-        // строчка ниже работает для MacOs. заменить для Windows: Path filePath = Path.of(avatarsDir, student + "." + getExtensions(avatarFile.getOriginalFilename()));
+        // строчка ниже работает для MacOs.
         //Path filePath = Path.of(new File("").getAbsolutePath() + avatarsDir, student + "." + getExtensions(avatarFile.getOriginalFilename()));
-        Path filePath = Path.of(avatarsDir, student + "." + getExtensions(avatarFile.getOriginalFilename()));
+        Path filePath = Path.of(avatarsDir, studentId + "." + getExtensions(avatarFile.getOriginalFilename()));
         Files.createDirectories(filePath.getParent());
         Files.deleteIfExists(filePath);
 
@@ -64,12 +67,13 @@ public class AvatarServiceImpl implements AvatarService {
         ) {
             bis.transferTo(bos);
         }
-        Avatar avatar = new Avatar();
+        Avatar avatar = findAvatar(studentId);
         avatar.setStudent(student);
         avatar.setFilePath(filePath.toString());
         avatar.setFileSize(avatarFile.getSize());
         avatar.setMediaType(avatarFile.getContentType());
-        avatar.setData(avatarFile.getBytes());
+        avatar.setData(generateImagePreview(filePath));
+
         avatarRepository.save(avatar);
     }
 
@@ -78,33 +82,22 @@ public class AvatarServiceImpl implements AvatarService {
         return fileName.substring(fileName.lastIndexOf(".") + 1);
     }
 
-    public ResponseEntity<byte[]> downloadAvatarByStudentFromDb(Long studentId) {
-        logger.info("Was invoked method for download avatar by student from DB");
-        Optional<Avatar> avatarOpt = avatarRepository.findByStudentId(studentId);
-        if (avatarOpt.isEmpty()) {
-            return new ResponseEntity<byte[]>(HttpStatus.NOT_FOUND);
-        }
-        Avatar avatar = avatarOpt.get();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(avatar.getMediaType()));
-        headers.setContentLength(avatar.getData().length);
-        return ResponseEntity.status(HttpStatus.OK).headers(headers).body(avatar.getData());
-    }
+    private byte[] generateImagePreview(Path filePath)throws IOException {
+        logger.info("The method for saving a small copy of the avatar is called");
+        try (
+                InputStream is = Files.newInputStream(filePath);
+                BufferedInputStream bis = new BufferedInputStream(is,1024);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            BufferedImage image = ImageIO.read(bis);
 
-    public void downloadAvatarFromFileSystem(Long studentId, HttpServletResponse response) throws IOException {
-        logger.info("Was invoked method for download avatar from file system");
-        Optional<Avatar> avatarOpt = avatarRepository.findByStudentId(studentId);
-        if (avatarOpt.isEmpty()) {
-            return;
-        }
-        Avatar avatar = avatarOpt.get();
-        Path path = Path.of(avatar.getFilePath());
-        try (InputStream is = Files.newInputStream(path);
-             OutputStream os = response.getOutputStream();) {
-            response.setStatus(200);
-            response.setContentType(avatar.getMediaType());
-            response.setContentLength((int) avatar.getFileSize());
-            is.transferTo(os);
+            int height = image.getHeight()/(image.getWidth()/100);
+            BufferedImage preview = new BufferedImage(100,height,image.getType());
+            Graphics2D graphics2D = preview.createGraphics();
+            graphics2D.drawImage(image,0,0,100,height,null);
+            graphics2D.dispose();
+
+            ImageIO.write(preview,getExtensions(filePath.getFileName().toString()),baos);
+            return baos.toByteArray();
         }
     }
 
@@ -112,6 +105,15 @@ public class AvatarServiceImpl implements AvatarService {
     public List<Avatar> getAllAvatars(Integer pageNumber, Integer sizePage) {
         logger.info("Was invoked method for displaying avatars by page");
         PageRequest pageRequest = PageRequest.of(pageNumber - 1, sizePage);
+        return avatarRepository.findAll(pageRequest).getContent();
+    }
+    public Avatar findAvatar(Long studentId) {
+        logger.info("Called method for getting avatar");
+        return avatarRepository.findByStudentId(studentId).orElse(new Avatar());
+    }
+    public List<Avatar> getAllAvatarStudentPage(Integer numberPage, Integer numberSize) {
+        logger.info("The method for displaying avatars by page is called");
+        PageRequest pageRequest = PageRequest.of(numberPage - 1, numberSize);
         return avatarRepository.findAll(pageRequest).getContent();
     }
 }

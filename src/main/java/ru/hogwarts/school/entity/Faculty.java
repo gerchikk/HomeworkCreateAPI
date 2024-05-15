@@ -1,6 +1,8 @@
 package ru.hogwarts.school.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -18,6 +20,7 @@ public class Faculty {
     private String name;
     private String color;
 
+    @JsonIgnore
     @OneToMany
     private List<Student> students;
 
@@ -26,10 +29,8 @@ public class Faculty {
         this.name = name;
         this.color = color;
     }
-
     public Faculty(Faculty faculty) {
     }
-
     public Faculty() {
 
     }

@@ -6,14 +6,15 @@ import ru.hogwarts.school.entity.Avatar;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 public interface AvatarService {
     public void uploadAvatar(Long studentId, MultipartFile avatar) throws IOException;
 
-    public ResponseEntity<byte[]> downloadAvatarByStudentFromDb(Long studentId);
-
-    public void downloadAvatarFromFileSystem(Long studentId, HttpServletResponse response) throws IOException;
-
     List<Avatar> getAllAvatars(Integer pageNumber, Integer sizePage);
+
+    Avatar findAvatar(Long studentId);
+
+    List<Avatar> getAllAvatarStudentPage(Integer numberPage, Integer numberSize);
 }
